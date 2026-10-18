@@ -143,9 +143,11 @@ dev = [
 ]
 
 [tool.uv]
-# Keep this exact pin in sync with docker/Dockerfile and docker/Dockerfile.lambda
-# so local, CI, release, and container builds use the same uv version.
-required-version = "==0.12.19"
+# Floor, not an exact pin: Dependabot runs its own uv (currently 0.12.18) and
+# fails the whole update when required-version doesn't match it, so an exact
+# pin can never work there. docker/Dockerfile and docker/Dockerfile.lambda
+# still pin their image tag for reproducible container builds.
+required-version = ">=0.12.10"
 
 [tool.ruff]
 line-length = 120
