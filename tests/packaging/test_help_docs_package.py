@@ -202,8 +202,18 @@ def test_help_docs_distribution_contract(tmp_path):
     uv = shutil.which("uv")
     assert uv, "uv is required for the packaging regression"
     with (REPOSITORY_ROOT / "pyproject.toml").open("rb") as pyproject:
-        required_uv = tomllib.load(pyproject)["tool"]["uv"]["required-version"].removeprefix("==")
-    assert _run([uv, "--version"], cwd=tmp_path).stdout.startswith(f"uv {required_uv} ")
+        # required-version is a floor (">=x.y.z"), not an exact pin: an exact
+        # pin breaks Dependabot, whose uv version GitHub controls. Assert the
+        # running uv meets the minimum instead of matching it exactly.
+        required_uv = (
+            tomllib.load(pyproject)["tool"]["uv"]["required-version"]
+            .removeprefix("==")
+            .removeprefix(">=")
+        )
+    running_uv = _run([uv, "--version"], cwd=tmp_path).stdout.strip().split()[1]
+    assert tuple(int(p) for p in running_uv.split(".")) >= tuple(
+        int(p) for p in required_uv.split(".")
+    ), f"uv {running_uv} does not satisfy required-version >={required_uv}"
 
     build_env = os.environ.copy()
     build_env["UV_CACHE_DIR"] = str(tmp_path / "uv-cache")
