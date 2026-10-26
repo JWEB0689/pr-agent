@@ -1,0 +1,26 @@
+name: PR-Agent Review (Privileged)
+
+# Stage 2 of the two-stage Dependabot review pipeline. workflow_run executes
+# in the default-branch context, so Actions secrets are available and the
+# token can write — the Qodo-style review can post comments on Dependabot
+# PRs, which the direct pull_request path cannot do.
+
+on:
+  workflow_run:
+    workflows: ["PR-Agent Collect"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  review:
+    if: github.event.workflow_run.conclusion == 'success'
+    uses: JWEB0689/pr-agent-settings/.github/workflows/reusable_pr_review_run.yml@main
+    with:
+      source_run_id: ${{ github.event.workflow_run.id }}
+    secrets:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
