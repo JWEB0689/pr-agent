@@ -1,0 +1,42 @@
+name: PR-Agent Collect
+
+# Stage 1 of the two-stage Dependabot review pipeline. Runs in the
+# restricted pull_request context (no secrets, read-only token), so it only
+# records PR metadata as an artifact. The privileged review runs separately
+# via workflow_run (see pr_agent_review_run.yml).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write PR context
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          ctx = {
+              "pr_number": int(os.environ["PR_NUMBER"]),
+              "head_sha": os.environ["HEAD_SHA"],
+              "dependabot": os.environ["AUTHOR"] == "dependabot[bot]",
+          }
+          with open("pr.json", "w") as fh:
+              json.dump(ctx, fh)
+          print(ctx)
+          EOF
+
+      - name: Upload PR context
+        uses: actions/upload-artifact@v6
+        with:
+          name: pr-context
+          path: pr.json
+          retention-days: 1
