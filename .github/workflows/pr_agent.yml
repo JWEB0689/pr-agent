@@ -16,30 +16,50 @@ permissions:
   issues: write
 
 jobs:
+  check-pr-agent-config:
+    runs-on: ubuntu-latest
+    outputs:
+      gemini_configured: ${{ steps.check.outputs.gemini_configured }}
+    steps:
+      - name: Check Gemini API key
+        id: check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -n "$GEMINI_API_KEY" ]; then
+            echo "gemini_configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "gemini_configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Auto-review on PR events and /review or /describe comments
   pr_agent:
+    needs: check-pr-agent-config
     if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.action == 'created' &&
-       github.event.issue.pull_request &&
-       github.event.sender.type != 'Bot' &&
-       !contains(github.event.comment.body, '/sign-off') &&
-       !contains(github.event.comment.body, '/autofix'))
+      needs.check-pr-agent-config.outputs.gemini_configured == 'true' &&
+      (github.event_name == 'pull_request' ||
+       (github.event_name == 'issue_comment' &&
+        github.event.action == 'created' &&
+        github.event.issue.pull_request &&
+        github.event.sender.type != 'Bot' &&
+        !contains(github.event.comment.body, '/sign-off') &&
+        !contains(github.event.comment.body, '/autofix')))
     uses: JWEB0689/pr-agent-settings/.github/workflows/pr_agent.yml@main
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
   # Sign-Off — triggered by ticking the [x] Sign-Off checkbox or commenting /sign-off or /autofix
   sign-off:
+    needs: check-pr-agent-config
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.pull_request &&
-      github.event.sender.type != 'Bot' &&
-      (contains(github.event.comment.body, '/sign-off') ||
-       contains(github.event.comment.body, '/autofix') ||
-       contains(github.event.comment.body, '- [x] <!-- muse-sign-off -->') ||
-       contains(github.event.comment.body, '- [X] <!-- muse-sign-off -->'))
+      needs.check-pr-agent-config.outputs.gemini_configured == 'true' &&
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.sender.type != 'Bot' &&
+       (contains(github.event.comment.body, '/sign-off') ||
+        contains(github.event.comment.body, '/autofix') ||
+        contains(github.event.comment.body, '- [x] <!-- muse-sign-off -->') ||
+        contains(github.event.comment.body, '- [X] <!-- muse-sign-off -->')))
     uses: JWEB0689/pr-agent-settings/.github/workflows/reusable_autofix.yml@main
     with:
       mode: pr
