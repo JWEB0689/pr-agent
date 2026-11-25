@@ -19,7 +19,7 @@ def read_config(path):
         return None
 
 
-password = "hunter2"
+password = os.getenv("APP_PASSWORD") # Or retrieve from a secure configuration management system
 
 
 def divide(a, b):
